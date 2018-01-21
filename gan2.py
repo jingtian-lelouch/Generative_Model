@@ -158,7 +158,7 @@ sess = tf.Session()
 writer = tf.summary.FileWriter("logs/", sess.graph)
 sess.run(tf.global_variables_initializer())
 
-iterations = 3000
+iterations = 80000
 for i in range(iterations):
     z_batch = np.random.normal(-1, 1, size=[batch_size, z_dimensions])
     real_image_batch = mnist.train.next_batch(batch_size)
@@ -167,7 +167,7 @@ for i in range(iterations):
     with tf.control_dependencies(update_ops):
         _,dLoss = sess.run([trainerD, d_loss],feed_dict={z_placeholder:z_batch,x_placeholder:real_image_batch,phase:1}) #Update the discriminator
         _,gLoss = sess.run([trainerG,g_loss],feed_dict={z_placeholder:z_batch,phase:1}) #Update the generator
-    if i%100==0:
+    if i%5000==0:
         print('Iter: {}'.format(i))
         print('D loss: {:.4}'.format(dLoss))
         print('G_loss: {:.4}'.format(gLoss))
