@@ -74,7 +74,7 @@ def generator(z, batch_size, z_dim):
         b_conv1 = tf.get_variable('g_bconv1', [output1_shape[-1]], initializer=tf.constant_initializer(.1))
         H_conv1 = tf.nn.conv2d_transpose(h0, W_conv1, output_shape=output1_shape, 
                                          strides=[1, 2, 2, 1], padding='SAME') + b_conv1
-        H_conv1 = tf.contrib.layers.batch_norm(inputs = H_conv1, center=True, scale=True, is_training=True, scope="g_bn1")
+        H_conv1 = tf.layers.batch_normalization(inputs = H_conv1, center=True, scale=True, training=phase)
         H_conv1 = tf.nn.relu(H_conv1)
     #Dimensions of H_conv1 = batch_size x 3 x 3 x 256
 
@@ -86,7 +86,7 @@ def generator(z, batch_size, z_dim):
         b_conv2 = tf.get_variable('g_bconv2', [output2_shape[-1]], initializer=tf.constant_initializer(.1))
         H_conv2 = tf.nn.conv2d_transpose(H_conv1, W_conv2, output_shape=output2_shape, 
                                          strides=[1, 2, 2, 1], padding='SAME') + b_conv2
-        H_conv2 = tf.contrib.layers.batch_norm(inputs = H_conv2, center=True, scale=True, is_training=True, scope="g_bn2")
+        H_conv2 = tf.layers.batch_normalization(inputs = H_conv2, center=True, scale=True, training=phase)
         H_conv2 = tf.nn.relu(H_conv2)
     #Dimensions of H_conv2 = batch_size x 6 x 6 x 128
 
@@ -98,7 +98,7 @@ def generator(z, batch_size, z_dim):
         b_conv3 = tf.get_variable('g_bconv3', [output3_shape[-1]], initializer=tf.constant_initializer(.1))
         H_conv3 = tf.nn.conv2d_transpose(H_conv2, W_conv3, output_shape=output3_shape, 
                                          strides=[1, 2, 2, 1], padding='SAME') + b_conv3
-        H_conv3 = tf.contrib.layers.batch_norm(inputs = H_conv3, center=True, scale=True, is_training=True, scope="g_bn3")
+        H_conv3 = tf.layers.batch_normalization(inputs = H_conv3, center=True, scale=True, training=phase)
         H_conv3 = tf.nn.relu(H_conv3)
     #Dimensions of H_conv3 = batch_size x 12 x 12 x 64
 
@@ -120,9 +120,11 @@ def generator(z, batch_size, z_dim):
 
 #########Build model
 with tf.variable_scope('Input'):
-    x_placeholder = tf.placeholder("float", shape = [None,28,28,1],name="x_real") #Placeholder for input images to the discriminator
+    x_placeholder = tf.placeholder(tf.float32, shape = [None,28,28,1],name="x_real") #Placeholder for input images to the discriminator
     z_placeholder = tf.placeholder(tf.float32, [None, z_dimensions],name="z") #Placeholder for input noise vectors to the generator
-
+    phase = tf.placeholder(tf.bool, shape=[], name='phase')
+    
+    
 with tf.variable_scope('Generator'):
     Gz = generator(z_placeholder, batch_size, z_dimensions)
     
@@ -147,7 +149,7 @@ g_vars = [var for var in tvars if 'g_' in var.name]
 with tf.variable_scope("training"): 
     trainerD = tf.train.AdamOptimizer().minimize(d_loss, var_list=d_vars)
     trainerG = tf.train.AdamOptimizer().minimize(g_loss, var_list=g_vars)
-
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
 #######Training
 #if not os.path.exists('out/'):
@@ -162,15 +164,17 @@ for i in range(iterations):
     z_batch = np.random.normal(-1, 1, size=[batch_size, z_dimensions])
     real_image_batch = mnist.train.next_batch(batch_size)
     real_image_batch = np.reshape(real_image_batch[0],[batch_size,28,28,1])
-    _,dLoss = sess.run([trainerD, d_loss],feed_dict={z_placeholder:z_batch,x_placeholder:real_image_batch}) #Update the discriminator
-    _,gLoss = sess.run([trainerG,g_loss],feed_dict={z_placeholder:z_batch}) #Update the generator
+    
+    with tf.control_dependencies(update_ops):
+        _,dLoss = sess.run([trainerD, d_loss],feed_dict={z_placeholder:z_batch,x_placeholder:real_image_batch,phase:1}) #Update the discriminator
+        _,gLoss = sess.run([trainerG,g_loss],feed_dict={z_placeholder:z_batch,phase:1}) #Update the generator
     if i%100==0:
         print('Iter: {}'.format(i))
         print('D loss: {:.4}'.format(dLoss))
         print('G_loss: {:.4}'.format(gLoss))
         print()
-        G_samples = sess.run(Gz,feed_dict={z_placeholder:z_batch})
+        G_samples = sess.run(Gz,feed_dict={z_placeholder:z_batch,phase:1})
         tf.summary.image('Generated_samples',G_samples,max_outputs=16)
         merged=tf.summary.merge_all()
-        rs = sess.run(merged,feed_dict={z_placeholder:z_batch,x_placeholder:real_image_batch})
+        rs = sess.run(merged,feed_dict={z_placeholder:z_batch,x_placeholder:real_image_batch,phase:1})
         writer.add_summary(rs,i)
