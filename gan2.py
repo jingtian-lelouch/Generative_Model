@@ -7,9 +7,8 @@ Created on Thu Jan 18 21:18:28 2018
 
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
-import os
+
 ############Load Data
 mnist = input_data.read_data_sets("MNIST_data/")
 x_train = mnist.train.images[:55000,:]
